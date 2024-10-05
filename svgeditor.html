@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SVG 所见即所得编辑器</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        background-color: #ffffff;
+    }
+    #container {
+        display: flex;
+        height: 100vh;
+        position: relative;
+    }
+    #editor, #preview {
+        padding: 10px;
+        box-sizing: border-box;
+        overflow: auto;
+        min-width: 100px;
+        height: 100%;
+    }
+    #editor {
+        width: calc(50% - 5px);
+    }
+	
+	#preview {
+			width: calc(50% - 5px);
+			border-left: 1px solid #ccc;
+			background-color: #f0f0f0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: 10mm;
+			box-sizing: border-box;
+		}
+
+    #svgContainer {
+        width: 100%; 
+        height: 100%; 
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 5px;
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        overflow: auto; 
+    }
+
+    #svgContainer svg {
+        max-width: 100%; 
+        max-height: 100%; 
+    }
+	
+    #divider {
+        width: 10px;
+        cursor: col-resize;
+        background-color: #ccc;
+        flex-shrink: 0;
+    }
+    textarea {
+        width: 100%;
+        height: 100%;
+        resize: none;
+        font-family: monospace;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    #colorPickerContainer {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+    }
+    #colorPickerLabel {
+        cursor: pointer;
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background-color: #ffffff;
+        border: 1px solid #000;
+        border-radius: 4px;
+    }
+    #backgroundColorPicker {
+        display: none;
+    }
+    .download-buttons {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .download-buttons button {
+        padding: 10px 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .download-buttons button:hover {
+        background-color: #45a049;
+    }
+    #notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+    }
+</style>
+</head>
+<body>
+
+<div id="container">
+    <div id="editor">
+        <textarea id="svgCode" placeholder="在此粘贴或编辑 SVG 代码"></textarea>
+    </div>
+    <div id="divider"></div>
+    <div id="preview">
+        <div id="svgContainer">
+            <!-- SVG 图像将显示在这里 -->
+        </div>
+    </div>
+    <div id="colorPickerContainer">
+        <label for="backgroundColorPicker" id="colorPickerLabel" title="选择背景颜色"></label>
+        <input type="color" id="backgroundColorPicker">
+    </div>
+    <div class="download-buttons">
+        <button id="downloadSvg">下载 SVG</button>
+        <button id="downloadPng">下载 PNG</button>
+        <button id="copyPng">复制 PNG</button>
+    </div>
+</div>
+
+<div id="notification">PNG 已复制到剪贴板</div>
+
+<script>
+    const svgCodeTextarea = document.getElementById('svgCode');
+    const svgContainer = document.getElementById('svgContainer');
+    const divider = document.getElementById('divider');
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const container = document.getElementById('container');
+    const colorPicker = document.getElementById('backgroundColorPicker');
+    const colorPickerLabel = document.getElementById('colorPickerLabel');
+    const notification = document.getElementById('notification');
+
+    // 更新 SVG 预览
+    function updateSVG() {
+        const svgCode = svgCodeTextarea.value;
+        svgContainer.innerHTML = svgCode;
+    }
+
+    svgCodeTextarea.addEventListener('input', updateSVG);
+
+    // 分割条拖拽功能
+    let isResizing = false;
+
+    divider.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        let containerOffsetLeft = container.getBoundingClientRect().left;
+        let pointerRelativeXpos = e.clientX - containerOffsetLeft;
+        let editorMinWidth = 100; // 最小宽度
+        let previewMinWidth = 100;
+        let totalWidth = container.clientWidth;
+
+        if (pointerRelativeXpos < editorMinWidth) {
+            pointerRelativeXpos = editorMinWidth;
+        } else if (pointerRelativeXpos > totalWidth - previewMinWidth - divider.offsetWidth) {
+            pointerRelativeXpos = totalWidth - previewMinWidth - divider.offsetWidth;
+        }
+
+        let editorWidth = pointerRelativeXpos;
+        let previewWidth = totalWidth - editorWidth - divider.offsetWidth;
+
+        editor.style.width = editorWidth + 'px';
+        preview.style.width = previewWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', function(e) {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+    });
+
+    // 更改背景颜色
+    colorPicker.addEventListener('input', function() {
+        svgContainer.style.backgroundColor = colorPicker.value;
+        colorPickerLabel.style.backgroundColor = colorPicker.value;
+    });
+
+    // 初始化调色板颜色
+    colorPickerLabel.style.backgroundColor = '#ffffff';
+
+    // 下载 SVG 和 PNG
+    document.getElementById('downloadSvg').addEventListener('click', function() {
+        const svgElement = document.querySelector('svg');
+        const svgString = new XMLSerializer().serializeToString(svgElement);
+        const blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'image.svg';
+        link.click();
+    });
+
+    document.getElementById('downloadPng').addEventListener('click', function() {
+        const svgElement = document.querySelector('svg');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const svgRect = svgElement.getBoundingClientRect();
+        
+        canvas.width = svgRect.width;
+        canvas.height = svgRect.height;
+        
+        const svgBackground = window.getComputedStyle(svgContainer).backgroundColor;
+        
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const img = new Image();
+        img.onload = function() {
+            ctx.fillStyle = svgBackground;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'image.png';
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    });
+    
+    // 复制 PNG 到剪贴板
+    document.getElementById('copyPng').addEventListener('click', function() {
+        const svgElement = document.querySelector('svg');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const svgRect = svgElement.getBoundingClientRect();
+        
+        canvas.width = svgRect.width;
+        canvas.height = svgRect.height;
+        
+        const svgBackground = window.getComputedStyle(svgContainer).backgroundColor;
+        
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const img = new Image();
+        img.onload = function() {
+            ctx.fillStyle = svgBackground;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            
+            canvas.toBlob(function(blob) {
+                const item = new ClipboardItem({ "image/png": blob });
+                navigator.clipboard.write([item]).then(function() {
+                    showNotification();
+                }, function(err) {
+                    console.error('复制失败: ', err);
+                });
+            }, 'image/png');
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    });
+
+    // 显示通知
+    function showNotification() {
+        notification.style.display = 'block';
+        setTimeout(() => {
+            notification.style.opacity = '1';
+        }, 10);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 300);
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>
